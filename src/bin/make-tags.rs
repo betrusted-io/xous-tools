@@ -10,7 +10,7 @@ use bootloader::xkrn::XousKernel;
 const RAM_START: XousSize = 0x40000000;
 const RAM_SIZE: XousSize = 16_777_216;
 const FLASH_START: XousSize = 0x20000000;
-const FLASH_SIZE: XousSize = 16_777_216;
+const FLASH_SIZE: XousSize = 128 * 1024 * 1024;
 const IO_START: XousSize = 0xe0000000;
 const IO_SIZE: XousSize = 65_536;
 const LCD_START: XousSize = 0xB0000000;
