@@ -19,14 +19,17 @@ pub struct XousKernel {
     /// Size of .data and .bss section
     data_size: u32,
 
-    /// Virtual address trap handler
-    trap_handler: u32,
+    /// Virtual address of the entrypoint
+    entrypoint: u32,
+
+    /// Virtual address of the initial stack pointer
+    stack: u32,
 }
 
 impl fmt::Display for XousKernel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "XousKernel: {} bytes long, loaded from {:08x} to {:08x} with trap_handler @ {:08x}, and {} bytes of data @ {:08x}",
-            self.load_size, self.load_offset, self.text_offset, self.trap_handler,
+        writeln!(f, "XousKernel: {} bytes long, loaded from {:08x} to {:08x} with entrypoint @ {:08x}, and {} bytes of data @ {:08x}",
+            self.load_size, self.load_offset, self.text_offset, self.entrypoint,
             self.data_size, self.data_offset)
     }
 }
@@ -38,7 +41,8 @@ impl XousKernel {
         text_offset: u32,
         data_offset: u32,
         data_size: u32,
-        trap_handler: u32,
+        entrypoint: u32,
+        stack: u32,
     ) -> XousKernel {
         XousKernel {
             load_offset,
@@ -46,7 +50,8 @@ impl XousKernel {
             text_offset,
             data_offset,
             data_size,
-            trap_handler,
+            entrypoint,
+            stack,
         }
     }
 }
@@ -65,7 +70,8 @@ impl XousArgument for XousKernel {
         written += output.write(&self.text_offset.to_le_bytes())?;
         written += output.write(&self.data_offset.to_le_bytes())?;
         written += output.write(&self.data_size.to_le_bytes())?;
-        written += output.write(&self.trap_handler.to_le_bytes())?;
+        written += output.write(&self.entrypoint.to_le_bytes())?;
+        written += output.write(&self.stack.to_le_bytes())?;
         Ok(written)
     }
 }

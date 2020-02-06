@@ -4,7 +4,7 @@ use std::fs::File;
 
 use bootloader::xous_arguments::{XousArguments, XousSize};
 use bootloader::memory::{MemoryRegion, MemoryRegions};
-use bootloader::pid1::PID1;
+use bootloader::init::Init;
 use bootloader::xkrn::XousKernel;
 
 const RAM_START: XousSize = 0x40000000;
@@ -25,7 +25,7 @@ fn main() {
     regions.add(MemoryRegion::new(IO_START, IO_SIZE, "ioio"));
     regions.add(MemoryRegion::new(LCD_START, LCD_SIZE, "mlcd"));
 
-    let pid1 = PID1::new(0x20500000, 131072, 0x10000000,
+    let init = Init::new(0x20500000, 131072, 0x10000000,
         0x20000000, 32768,
         0x10000000,
         0xc0000000
@@ -33,10 +33,10 @@ fn main() {
 
     let xkrn = XousKernel::new(0x20500000, 65536, 0x02000000,
         0x04000000, 32768,
-        0x02000000);
+        0x02000000, 0x44320);
 
     args.add(&regions);
-    args.add(&pid1);
+    args.add(&init);
     args.add(&xkrn);
 
     println!("Arguments: {}", args);
