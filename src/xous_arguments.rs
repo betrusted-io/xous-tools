@@ -59,10 +59,7 @@ impl<'a> XousArguments<'a> {
     where
         T: io::Write,
     {
-        let mut total_length = 20 + 8; // 'XArg' plus tag length total length
-        for arg in &self.arguments {
-            total_length = total_length + arg.length() + 8;
-        }
+        let total_length = self.len();
 
         // XArg tag header
         w.write(&make_type!("XArg").to_le_bytes())?;
@@ -76,6 +73,7 @@ impl<'a> XousArguments<'a> {
         w.write(&(self.ram_length as u32).to_le_bytes())?;
         w.write(&(self.ram_name as u32).to_le_bytes())?;
 
+        // Write out each subsequent argument
         for arg in &self.arguments {
             w.write(&arg.code().to_le_bytes())?;
             w.write(&0u16.to_le_bytes())?;
@@ -91,5 +89,13 @@ impl<'a> XousArguments<'a> {
             );
         }
         Ok(())
+    }
+
+    pub fn len(&self) -> u32 {
+        let mut total_length = 20 + 8; // 'XArg' plus tag length total length
+        for arg in &self.arguments {
+            total_length = total_length + arg.length() + 8;
+        }
+        total_length
     }
 }

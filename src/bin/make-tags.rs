@@ -1,5 +1,4 @@
 extern crate bootloader;
-extern crate xmas_elf;
 
 use std::fs::File;
 

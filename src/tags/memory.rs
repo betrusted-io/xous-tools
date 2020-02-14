@@ -20,25 +20,17 @@ pub struct MemoryRegions {
 
 impl fmt::Display for MemoryRegions {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Memory regions:")?;
-        if let Some(regions) = self.regions.split_first() {
-            let (first, rest) = regions;
+        writeln!(f, "Additional regions:")?;
+        for region in &self.regions {
+            let tag_name_bytes = region.name.to_le_bytes();
+            let tag_name_str = String::from_utf8_lossy(&tag_name_bytes);
             writeln!(
                 f,
-                "    RAM: {:08x} - {:08x}",
-                first.start,
-                first.start + first.length
+                "    {} ({:08x}): {:08x} - {:08x}",
+                tag_name_str, region.name,
+                region.start,
+                region.start + region.length
             )?;
-            for region in rest {
-                writeln!(
-                    f,
-                    "    mem: {:08x} - {:08x}",
-                    region.start,
-                    region.start + region.length
-                )?;
-            }
-        } else {
-            writeln!(f, "    [None]")?;
         }
         Ok(())
     }
@@ -56,6 +48,9 @@ impl MemoryRegions {
     }
     pub fn add(&mut self, region: MemoryRegion) {
         self.regions.push(region)
+    }
+    pub fn len(&self) -> usize {
+        self.regions.len()
     }
 }
 
