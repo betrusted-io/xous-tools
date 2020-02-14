@@ -32,7 +32,7 @@ fn process_tags(b8: *mut u8) {
     let mut total_words = 0u32;
     loop {
         let (tag_name, crc, size) = read_next_tag(b8, &mut byte_offset).expect("couldn't read next tag");
-        if tag_name == make_type!("XASZ") && size == 4 {
+        if tag_name == make_type!("XArg") && size == 20 {
             total_words = unsafe { (b8 as *mut u32).add(byte_offset / 4).read() } * 4;
             println!("Found Xous Args Size at offset {}, setting total_words to {}", byte_offset, total_words);
         }

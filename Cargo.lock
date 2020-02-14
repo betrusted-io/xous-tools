@@ -3,4 +3,23 @@
 [[package]]
 name = "bootloader"
 version = "0.1.0"
+dependencies = [
+ "xmas-elf 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
+[[package]]
+name = "xmas-elf"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "zero 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "zero"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[metadata]
+"checksum xmas-elf 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e74de9a366f6ab8c405fa6b371d9ac24943921fa14b3d64afcb202065c405f11"
+"checksum zero 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "5f1bc8a6b2005884962297587045002d8cfb8dcec9db332f4ca216ddc5de82c5"

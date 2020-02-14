@@ -7,9 +7,13 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+xmas-elf = "0.7.0"
 
 [[bin]]
 name = "make-tags"
 
 [[bin]]
 name = "read-tags"
+
+[[bin]]
+name = "check-elf"
