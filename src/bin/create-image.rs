@@ -285,8 +285,9 @@ fn main() {
     // Add tags for init and kernel.  These point to the actual data, which should
     // immediately follow the tags.  Therefore, we must know the length of the tags
     // before we create them.
-    let mut program_offset =
-        args.len() as usize + (Init::len() + args.header_len()) * programs.len() + (XousKernel::len() + args.header_len());
+    let mut program_offset = args.len() as usize
+        + (Init::len() + args.header_len()) * programs.len()
+        + (XousKernel::len() + args.header_len());
     let xkrn = XousKernel::new(
         program_offset as u32,
         kernel.program.len() as u32,
