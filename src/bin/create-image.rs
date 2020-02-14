@@ -10,7 +10,7 @@ use bootloader::tags::init::Init;
 use bootloader::tags::memory::{MemoryRegion, MemoryRegions};
 use bootloader::tags::xkrn::XousKernel;
 use bootloader::utils::{parse_csr_csv, parse_u32};
-use bootloader::xous_arguments::{XousArguments, XousArgument};
+use bootloader::xous_arguments::XousArguments;
 
 use xmas_elf::program::Type as ProgramType;
 use xmas_elf::sections::ShType;
@@ -120,7 +120,6 @@ fn read_program(filename: &str) -> Result<ProgramDescription, &str> {
         );
     }
 
-    // Err("Unable to read kernel")
     Ok(ProgramDescription {
         entry_point,
         program: program_data.into_inner(),
@@ -129,6 +128,12 @@ fn read_program(filename: &str) -> Result<ProgramDescription, &str> {
         stack: 0xdffffffc,
         text_offset,
     })
+}
+
+fn pad_file_to_4_bytes(f: &mut File) {
+    while f.seek(SeekFrom::Current(0)).expect("couldn't check file position") & 3 != 0 {
+        f.seek(SeekFrom::Current(1)).expect("couldn't pad file");
+    }
 }
 
 fn main() {
@@ -178,7 +183,7 @@ fn main() {
     let mut ram_offset = Default::default();
     let mut ram_size = Default::default();
     let mut ram_name = "sram".to_owned();
-    let mut regions = MemoryRegions::new();
+    let mut regions = Box::new(MemoryRegions::new());
 
     if let Some(val) = matches.value_of("ram") {
         let ram_parts: Vec<&str> = val.split(":").collect();
@@ -263,35 +268,49 @@ fn main() {
     let mut args = XousArguments::new(ram_offset, ram_size, &ram_name);
 
     if regions.len() > 0 {
-        args.add(&regions);
+        args.add(regions);
     }
 
     // Add tags for init and kernel.  These point to the actual data, which should
     // immediately follow the tags.  Therefore, we must know the length of the tags
     // before we create them.
     let mut program_offset = args.len() as usize + Init::len() * programs.len() + XousKernel::len();
-    let xkrn = XousKernel::new(
+    let xkrn = Box::new(XousKernel::new(
         program_offset as u32,
-        kernel.text_offset,
         kernel.program.len() as u32,
+        kernel.text_offset,
         kernel.data_offset,
         kernel.data_size,
         kernel.entry_point,
         kernel.stack,
-    );
+    ));
     program_offset += kernel.program.len();
-    args.add(&xkrn);
+    args.add(xkrn);
 
-    // let mut program_inits = vec![];
-    // for program_description in programs.into_iter() {
-    //     let Init::new(
-    //         0x20500000, 131072, 0x10000000, 0x20000000, 32768, 0x10000000, 0xc0000000,
-    //     ));
-    // }
-    // args.append(&mut program_inits);
+    for program_description in &programs {
+        let init = Box::new(Init::new(
+            program_offset as u32,
+            program_description.program.len() as u32,
+            program_description.text_offset,
+            program_description.data_offset,
+            program_description.data_size,
+            program_description.entry_point,
+            program_description.stack,
+        ));
+        program_offset += program_description.program.len();
+        args.add(init);
+    }
 
     println!("Arguments: {}", args);
 
-    let f = File::create("args.bin").expect("Couldn't create args.bin");
-    args.write(f).expect("Couldn't write to args");
+    let mut f = File::create("args.bin").expect("Couldn't create args.bin");
+    args.write(&f).expect("Couldn't write to args");
+
+    pad_file_to_4_bytes(&mut f);
+    f.write(&kernel.program).expect("Couldn't write kernel");
+
+    for program_description in &programs {
+        pad_file_to_4_bytes(&mut f);
+        f.write(&program_description.program).expect("Couldn't write kernel");
+    }
 }

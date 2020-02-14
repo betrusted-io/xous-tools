@@ -28,7 +28,7 @@ pub struct XousKernel {
 
 impl fmt::Display for XousKernel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "XousKernel: {} bytes long, loaded from {:08x} to {:08x} with entrypoint @ {:08x}, and {} bytes of data @ {:08x}",
+        writeln!(f, "    kernel: {} bytes long, loaded from {:08x} to {:08x} with entrypoint @ {:08x}, and {} bytes of data @ {:08x}",
             self.load_size, self.load_offset, self.text_offset, self.entrypoint,
             self.data_size, self.data_offset)
     }

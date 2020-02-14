@@ -20,13 +20,13 @@ pub struct MemoryRegions {
 
 impl fmt::Display for MemoryRegions {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Additional regions:")?;
+        writeln!(f, "    Additional regions:")?;
         for region in &self.regions {
             let tag_name_bytes = region.name.to_le_bytes();
             let tag_name_str = String::from_utf8_lossy(&tag_name_bytes);
             writeln!(
                 f,
-                "    {} ({:08x}): {:08x} - {:08x}",
+                "        {} ({:08x}): {:08x} - {:08x}",
                 tag_name_str, region.name,
                 region.start,
                 region.start + region.length

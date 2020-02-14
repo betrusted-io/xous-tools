@@ -24,16 +24,28 @@ pub trait XousArgument: fmt::Display {
     fn serialize(&self, output: &mut dyn std::io::Write) -> io::Result<usize>;
 }
 
-pub struct XousArguments<'a> {
+pub struct XousArguments {
     ram_start: XousSize,
     ram_length: XousSize,
     ram_name: u32,
-    arguments: Vec<&'a dyn XousArgument>,
+    arguments: Vec<Box<dyn XousArgument>>,
 }
 
-impl<'a> fmt::Display for XousArguments<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl fmt::Display for XousArguments {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "Xous Arguments with {} parameters", self.arguments.len())?;
+
+        let tag_name_bytes = self.ram_name.to_le_bytes();
+        let tag_name = String::from_utf8_lossy(&tag_name_bytes);
+        writeln!(
+            f,
+            "    Main RAM \"{}\" ({:08x}): {:08x} - {:08x}",
+            tag_name,
+            self.ram_name,
+            self.ram_start,
+            self.ram_start + self.ram_length
+        )?;
+
         for arg in &self.arguments {
             write!(f, "{}", arg)?;
         }
@@ -41,8 +53,8 @@ impl<'a> fmt::Display for XousArguments<'a> {
     }
 }
 
-impl<'a> XousArguments<'a> {
-    pub fn new(ram_start: XousSize, ram_length: XousSize, ram_name: &str) -> XousArguments<'a> {
+impl XousArguments {
+    pub fn new(ram_start: XousSize, ram_length: XousSize, ram_name: &str) -> XousArguments {
         XousArguments {
             ram_start,
             ram_length,
@@ -51,7 +63,7 @@ impl<'a> XousArguments<'a> {
         }
     }
 
-    pub fn add(&mut self, arg: &'a dyn XousArgument) {
+    pub fn add(&mut self, arg: Box<dyn XousArgument>) {
         self.arguments.push(arg);
     }
 
