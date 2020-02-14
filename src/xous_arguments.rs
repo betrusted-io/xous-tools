@@ -106,10 +106,14 @@ impl XousArguments {
     }
 
     pub fn len(&self) -> u32 {
-        let mut total_length = 20 + 8; // 'XArg' plus tag length total length
+        let mut total_length = 20 + self.header_len() as u32; // 'XArg' plus tag length total length
         for arg in &self.arguments {
-            total_length = total_length + arg.length() + 8;
+            total_length += arg.length() + 8;
         }
         total_length
+    }
+
+    pub fn header_len(&self) -> usize {
+        8
     }
 }

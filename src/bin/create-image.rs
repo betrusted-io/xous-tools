@@ -131,7 +131,12 @@ fn read_program(filename: &str) -> Result<ProgramDescription, &str> {
 }
 
 fn pad_file_to_4_bytes(f: &mut File) {
-    while f.seek(SeekFrom::Current(0)).expect("couldn't check file position") & 3 != 0 {
+    while f
+        .seek(SeekFrom::Current(0))
+        .expect("couldn't check file position")
+        & 3
+        != 0
+    {
         f.seek(SeekFrom::Current(1)).expect("couldn't pad file");
     }
 }
@@ -182,7 +187,7 @@ fn main() {
             Arg::with_name("output")
                 .value_name("OUTPUT")
                 .required(true)
-                .help("Output file to store tag and init information")
+                .help("Output file to store tag and init information"),
         )
         .get_matches();
 
@@ -280,7 +285,8 @@ fn main() {
     // Add tags for init and kernel.  These point to the actual data, which should
     // immediately follow the tags.  Therefore, we must know the length of the tags
     // before we create them.
-    let mut program_offset = args.len() as usize + Init::len() * programs.len() + XousKernel::len();
+    let mut program_offset =
+        args.len() as usize + (Init::len() + args.header_len()) * programs.len() + (XousKernel::len() + args.header_len());
     let xkrn = XousKernel::new(
         program_offset as u32,
         kernel.program.len() as u32,
@@ -309,8 +315,11 @@ fn main() {
 
     println!("Arguments: {}", args);
 
-    let output_filename = matches.value_of("output").expect("output filename not present");
-    let mut f = File::create(output_filename).expect(&format!("Couldn't create output file {}", output_filename));
+    let output_filename = matches
+        .value_of("output")
+        .expect("output filename not present");
+    let mut f = File::create(output_filename)
+        .expect(&format!("Couldn't create output file {}", output_filename));
     args.write(&f).expect("Couldn't write to args");
 
     pad_file_to_4_bytes(&mut f);
@@ -318,7 +327,8 @@ fn main() {
 
     for program_description in &programs {
         pad_file_to_4_bytes(&mut f);
-        f.write(&program_description.program).expect("Couldn't write kernel");
+        f.write(&program_description.program)
+            .expect("Couldn't write kernel");
     }
 
     println!("Image created in file {}", output_filename);
