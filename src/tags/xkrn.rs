@@ -54,6 +54,10 @@ impl XousKernel {
             stack,
         }
     }
+
+    pub fn len() -> usize {
+        std::mem::size_of::<Self>()
+    }
 }
 
 impl XousArgument for XousKernel {

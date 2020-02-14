@@ -3,9 +3,9 @@ extern crate bootloader;
 use std::fs::File;
 
 use bootloader::xous_arguments::{XousArguments, XousSize};
-use bootloader::memory::{MemoryRegion, MemoryRegions};
-use bootloader::init::Init;
-use bootloader::xkrn::XousKernel;
+use bootloader::tags::memory::{MemoryRegion, MemoryRegions};
+use bootloader::tags::init::Init;
+use bootloader::tags::xkrn::XousKernel;
 
 const RAM_START: XousSize = 0x40000000;
 const RAM_SIZE: XousSize = 4 * 1024 * 1024;

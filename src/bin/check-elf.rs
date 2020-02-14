@@ -17,6 +17,7 @@ fn main() {
     }
     let mut f = File::create("init.bin").expect("Couldn't create init.bin");
     let elf = ElfFile::new(&s).expect("Couldn't parse elf file");
+    println!("Entrypoint: {:08x}", elf.header.pt2.entry_point());
 
     let mut expected_size = 0;
     let mut program_offset = 0;
@@ -27,6 +28,8 @@ fn main() {
             expected_size = ph.file_size();
             program_offset = ph.offset();
         }
+        println!("Physical address: {:08x}", ph.physical_addr());
+        println!("Virtual address: {:08x}", ph.virtual_addr());
     }
     println!("File should be {} bytes, and program starts at 0x{:x}", expected_size, program_offset);
     for s in elf.section_iter() {

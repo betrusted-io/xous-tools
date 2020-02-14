@@ -54,6 +54,9 @@ impl Init {
             stack_offset,
         }
     }
+    pub fn len() -> usize {
+        std::mem::size_of::<Self>()
+    }
 }
 
 impl XousArgument for Init {

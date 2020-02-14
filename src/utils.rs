@@ -62,24 +62,24 @@ pub fn parse_csr_csv(filename: &str) -> Result<CsrConfig, ConfigError> {
     for result in rdr.records() {
         if let Ok(r) = result {
             if r.len() < 1 {
-                eprintln!("ignoring blank line");
+                eprintln!("csv: ignoring blank line");
                 continue;
             }
             match &r[0] {
                 "csr_base" => {
                     if r.len() < 3 {
-                        eprintln!("found csr_base entry, but entry was short");
+                        eprintln!("csv: found csr_base entry, but entry was short");
                         continue;
                     }
                     let base_addr = parse_u32(&r[2])?;
                     if base_addr > csr_top {
-                        eprintln!("increasing csr top: {:08x} -> {:08x}", csr_top, base_addr);
+                        // println!("csv: increasing csr top: {:08x} -> {:08x}", csr_top, base_addr);
                         csr_top = base_addr;
                     }
                 }
                 "memory_region" => {
                     if r.len() < 4 {
-                        eprintln!("found memory_region entry, but entry was short");
+                        eprintln!("csv: found memory_region entry, but entry was short");
                         continue;
                     }
                     let region_name = &r[1];

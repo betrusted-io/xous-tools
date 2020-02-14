@@ -4,14 +4,132 @@ extern crate xmas_elf;
 extern crate clap;
 
 use std::fs::File;
+use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 use bootloader::tags::init::Init;
 use bootloader::tags::memory::{MemoryRegion, MemoryRegions};
 use bootloader::tags::xkrn::XousKernel;
 use bootloader::utils::{parse_csr_csv, parse_u32};
-use bootloader::xous_arguments::XousArguments;
+use bootloader::xous_arguments::{XousArguments, XousArgument};
+
+use xmas_elf::program::Type as ProgramType;
+use xmas_elf::sections::ShType;
+use xmas_elf::ElfFile;
 
 use clap::{App, Arg};
+
+struct ProgramDescription {
+    /// Virtual address of .text section in RAM
+    text_offset: u32,
+
+    /// Virtual address of .data and .bss section in RAM
+    data_offset: u32,
+
+    /// Size of .data and .bss section
+    data_size: u32,
+
+    /// Virtual address of the entrypoint
+    entry_point: u32,
+
+    /// Virtual address of the initial stack pointer
+    stack: u32,
+
+    /// Program contents
+    program: Vec<u8>,
+}
+
+fn read_program(filename: &str) -> Result<ProgramDescription, &str> {
+    let mut b = Vec::new();
+    {
+        let mut fi = File::open(filename).expect("Couldn't open program");
+        fi.read_to_end(&mut b).expect("Couldn't read elf file");
+    }
+    let elf = ElfFile::new(&b).expect("Couldn't parse elf file");
+    let entry_point = elf.header.pt2.entry_point() as u32;
+    let mut program_data = Cursor::new(Vec::new());
+
+    let mut expected_size = 0;
+    let mut program_offset = 0;
+    let mut size = 0;
+    let mut data_offset = 0;
+    let mut data_size = 0;
+    let mut text_offset = 0;
+
+    for ph in elf.program_iter() {
+        // println!("Program Header: {:?}", ph);
+        if ph.get_type() == Ok(ProgramType::Load) {
+            expected_size = ph.file_size();
+            program_offset = ph.offset();
+        }
+        // println!("Physical address: {:08x}", ph.physical_addr());
+        // println!("Virtual address: {:08x}", ph.virtual_addr());
+    }
+    // println!(
+    //     "File should be {} bytes, and program starts at 0x{:x}",
+    //     expected_size, program_offset
+    // );
+
+    for s in elf.section_iter() {
+        let name = s.get_name(&elf).unwrap_or("<<error>>");
+        if s.get_type() == Ok(ShType::NoBits) {
+            // println!("(Skipping section {} -- invalid type)", name);
+            continue;
+        }
+
+        if s.address() == 0 {
+            // println!("(Skipping section {} -- invalid address)", name);
+            continue;
+        }
+
+        println!("Section {}:", name);
+        println!("    flags:            {:?}", s.flags());
+        println!("    type:             {:?}", s.get_type());
+        println!("    address:          {:08x}", s.address());
+        println!("    offset:           {:08x}", s.offset());
+        println!("    size:             {:?}", s.size());
+        println!("    link:             {:?}", s.link());
+        size += s.size();
+        if size & 3 != 0 {
+            println!("Size is not padded!");
+        }
+
+        if name == ".data" {
+            data_offset = s.address() as u32;
+            data_size = s.size() as u32;
+        } else if text_offset == 0 && s.size() != 0 {
+            text_offset = s.address() as u32;
+        }
+        if s.size() == 0 {
+            continue;
+        }
+        program_data
+            .seek(SeekFrom::Start(s.offset() - program_offset))
+            .expect("Couldn't seek file");
+        let section_data = s.raw_data(&elf);
+        program_data
+            .write(section_data)
+            .expect("Couldn't save data");
+    }
+    let observed_size = program_data
+        .seek(SeekFrom::End(0))
+        .expect("Couldn't seek to end of file");
+    if expected_size != observed_size {
+        panic!(
+            "Expected to read {} bytes, but actually read {} bytes",
+            expected_size, observed_size
+        );
+    }
+
+    // Err("Unable to read kernel")
+    Ok(ProgramDescription {
+        entry_point,
+        program: program_data.into_inner(),
+        data_size,
+        data_offset,
+        stack: 0xdffffffc,
+        text_offset,
+    })
+}
 
 fn main() {
     let matches = App::new("Xous Image Creator")
@@ -126,21 +244,51 @@ fn main() {
         }
     }
 
+    let kernel = read_program(
+        matches
+            .value_of("kernel")
+            .expect("kernel was somehow missing"),
+    )
+    .expect("unable to read kernel");
+    let mut programs = vec![];
+    if let Some(program_paths) = matches.values_of("init") {
+        for program_path in program_paths {
+            programs.push(
+                read_program(program_path)
+                    .expect(&format!("unable to read program {}", program_path)),
+            )
+        }
+    }
+
     let mut args = XousArguments::new(ram_offset, ram_size, &ram_name);
 
     if regions.len() > 0 {
         args.add(&regions);
     }
 
-    let init = Init::new(
-        0x20500000, 131072, 0x10000000, 0x20000000, 32768, 0x10000000, 0xc0000000,
-    );
-    args.add(&init);
-
+    // Add tags for init and kernel.  These point to the actual data, which should
+    // immediately follow the tags.  Therefore, we must know the length of the tags
+    // before we create them.
+    let mut program_offset = args.len() as usize + Init::len() * programs.len() + XousKernel::len();
     let xkrn = XousKernel::new(
-        0x20500000, 65536, 0x02000000, 0x04000000, 32768, 0x02000000, 0x44320,
+        program_offset as u32,
+        kernel.text_offset,
+        kernel.program.len() as u32,
+        kernel.data_offset,
+        kernel.data_size,
+        kernel.entry_point,
+        kernel.stack,
     );
+    program_offset += kernel.program.len();
     args.add(&xkrn);
+
+    // let mut program_inits = vec![];
+    // for program_description in programs.into_iter() {
+    //     let Init::new(
+    //         0x20500000, 131072, 0x10000000, 0x20000000, 32768, 0x10000000, 0xc0000000,
+    //     ));
+    // }
+    // args.append(&mut program_inits);
 
     println!("Arguments: {}", args);
 
