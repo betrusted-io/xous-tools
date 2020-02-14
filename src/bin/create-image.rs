@@ -81,13 +81,13 @@ fn read_program(filename: &str) -> Result<ProgramDescription, &str> {
             continue;
         }
 
-        println!("Section {}:", name);
-        println!("    flags:            {:?}", s.flags());
-        println!("    type:             {:?}", s.get_type());
-        println!("    address:          {:08x}", s.address());
-        println!("    offset:           {:08x}", s.offset());
-        println!("    size:             {:?}", s.size());
-        println!("    link:             {:?}", s.link());
+        // println!("Section {}:", name);
+        // println!("    flags:            {:?}", s.flags());
+        // println!("    type:             {:?}", s.get_type());
+        // println!("    address:          {:08x}", s.address());
+        // println!("    offset:           {:08x}", s.offset());
+        // println!("    size:             {:?}", s.size());
+        // println!("    link:             {:?}", s.link());
         size += s.size();
         if size & 3 != 0 {
             println!("Size is not padded!");
@@ -178,12 +178,18 @@ fn main() {
                 .required_unless("csv")
                 .help("RAM offset and size, in the form of [offset]:[size]"),
         )
+        .arg(
+            Arg::with_name("output")
+                .value_name("OUTPUT")
+                .required(true)
+                .help("Output file to store tag and init information")
+        )
         .get_matches();
 
     let mut ram_offset = Default::default();
     let mut ram_size = Default::default();
     let mut ram_name = "sram".to_owned();
-    let mut regions = Box::new(MemoryRegions::new());
+    let mut regions = MemoryRegions::new();
 
     if let Some(val) = matches.value_of("ram") {
         let ram_parts: Vec<&str> = val.split(":").collect();
@@ -236,12 +242,12 @@ fn main() {
             region_name.push_str("    ");
             region_name.truncate(4);
             if *k == found_ram_name {
-                println!(
-                    "Skipping ram block {} ({:08x} - {:08x})",
-                    k,
-                    ram_offset,
-                    ram_offset + ram_size
-                );
+                // println!(
+                //     "Skipping ram block {} ({:08x} - {:08x})",
+                //     k,
+                //     ram_offset,
+                //     ram_offset + ram_size
+                // );
                 ram_name = region_name.clone();
                 continue;
             }
@@ -275,7 +281,7 @@ fn main() {
     // immediately follow the tags.  Therefore, we must know the length of the tags
     // before we create them.
     let mut program_offset = args.len() as usize + Init::len() * programs.len() + XousKernel::len();
-    let xkrn = Box::new(XousKernel::new(
+    let xkrn = XousKernel::new(
         program_offset as u32,
         kernel.program.len() as u32,
         kernel.text_offset,
@@ -283,12 +289,12 @@ fn main() {
         kernel.data_size,
         kernel.entry_point,
         kernel.stack,
-    ));
+    );
     program_offset += kernel.program.len();
     args.add(xkrn);
 
     for program_description in &programs {
-        let init = Box::new(Init::new(
+        let init = Init::new(
             program_offset as u32,
             program_description.program.len() as u32,
             program_description.text_offset,
@@ -296,14 +302,15 @@ fn main() {
             program_description.data_size,
             program_description.entry_point,
             program_description.stack,
-        ));
+        );
         program_offset += program_description.program.len();
         args.add(init);
     }
 
     println!("Arguments: {}", args);
 
-    let mut f = File::create("args.bin").expect("Couldn't create args.bin");
+    let output_filename = matches.value_of("output").expect("output filename not present");
+    let mut f = File::create(output_filename).expect(&format!("Couldn't create output file {}", output_filename));
     args.write(&f).expect("Couldn't write to args");
 
     pad_file_to_4_bytes(&mut f);
@@ -313,4 +320,6 @@ fn main() {
         pad_file_to_4_bytes(&mut f);
         f.write(&program_description.program).expect("Couldn't write kernel");
     }
+
+    println!("Image created in file {}", output_filename);
 }

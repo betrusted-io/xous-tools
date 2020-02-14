@@ -63,8 +63,10 @@ impl XousArguments {
         }
     }
 
-    pub fn add(&mut self, arg: Box<dyn XousArgument>) {
-        self.arguments.push(arg);
+    pub fn add<T: 'static>(&mut self, arg: T)
+    where
+        T: XousArgument + Sized {
+        self.arguments.push(Box::new(arg));
     }
 
     pub fn write<T>(&self, mut w: T) -> io::Result<()>
