@@ -21,16 +21,13 @@ pub struct Init {
 
     /// Virtual address entry point
     entrypoint: u32,
-
-    /// Virtual address of the top of the stack pointer
-    stack_offset: u32,
 }
 
 impl fmt::Display for Init {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "    init: {} bytes long, loaded from {:08x} to {:08x} with entrypoint @ {:08x}, stack @ {:08x}, and {} bytes of data @ {:08x}",
+        writeln!(f, "    init: {} bytes long, loaded from {:08x} to {:08x} with entrypoint @ {:08x} and {} bytes of data @ {:08x}",
             self.load_size, self.load_offset, self.text_offset, self.entrypoint,
-        self.stack_offset, self.data_size, self.data_offset)
+            self.data_size, self.data_offset)
     }
 }
 
@@ -42,7 +39,6 @@ impl Init {
         data_offset: u32,
         data_size: u32,
         entrypoint: u32,
-        stack_offset: u32,
     ) -> Init {
         Init {
             load_offset,
@@ -51,7 +47,6 @@ impl Init {
             data_offset,
             data_size,
             entrypoint,
-            stack_offset,
         }
     }
     pub fn len() -> usize {
@@ -74,7 +69,6 @@ impl XousArgument for Init {
         written += output.write(&self.data_offset.to_le_bytes())?;
         written += output.write(&self.data_size.to_le_bytes())?;
         written += output.write(&self.entrypoint.to_le_bytes())?;
-        written += output.write(&self.stack_offset.to_le_bytes())?;
         Ok(written)
     }
 }

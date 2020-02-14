@@ -56,7 +56,7 @@ impl MemoryRegions {
 
 impl XousArgument for MemoryRegions {
     fn code(&self) -> XousArgumentCode {
-        make_type!("MBLK")
+        make_type!("MREx")
     }
     fn length(&self) -> XousSize {
         (self.regions.len() * std::mem::size_of::<MemoryRegion>()) as XousSize

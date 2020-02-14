@@ -31,9 +31,6 @@ struct ProgramDescription {
     /// Virtual address of the entrypoint
     entry_point: u32,
 
-    /// Virtual address of the initial stack pointer
-    stack: u32,
-
     /// Program contents
     program: Vec<u8>,
 }
@@ -125,7 +122,6 @@ fn read_program(filename: &str) -> Result<ProgramDescription, &str> {
         program: program_data.into_inner(),
         data_size,
         data_offset,
-        stack: 0xdffffffc,
         text_offset,
     })
 }
@@ -295,7 +291,6 @@ fn main() {
         kernel.data_offset,
         kernel.data_size,
         kernel.entry_point,
-        kernel.stack,
     );
     program_offset += kernel.program.len();
     args.add(xkrn);
@@ -308,7 +303,6 @@ fn main() {
             program_description.data_offset,
             program_description.data_size,
             program_description.entry_point,
-            program_description.stack,
         );
         program_offset += program_description.program.len();
         args.add(init);

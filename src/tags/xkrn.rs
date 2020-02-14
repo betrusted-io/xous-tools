@@ -21,9 +21,6 @@ pub struct XousKernel {
 
     /// Virtual address of the entrypoint
     entrypoint: u32,
-
-    /// Virtual address of the initial stack pointer
-    stack: u32,
 }
 
 impl fmt::Display for XousKernel {
@@ -42,7 +39,6 @@ impl XousKernel {
         data_offset: u32,
         data_size: u32,
         entrypoint: u32,
-        stack: u32,
     ) -> XousKernel {
         XousKernel {
             load_offset,
@@ -51,7 +47,6 @@ impl XousKernel {
             data_offset,
             data_size,
             entrypoint,
-            stack,
         }
     }
 
@@ -62,7 +57,7 @@ impl XousKernel {
 
 impl XousArgument for XousKernel {
     fn code(&self) -> XousArgumentCode {
-        make_type!("XKRN")
+        make_type!("XKrn")
     }
     fn length(&self) -> XousSize {
         std::mem::size_of::<Self>() as XousSize
@@ -75,7 +70,6 @@ impl XousArgument for XousKernel {
         written += output.write(&self.data_offset.to_le_bytes())?;
         written += output.write(&self.data_size.to_le_bytes())?;
         written += output.write(&self.entrypoint.to_le_bytes())?;
-        written += output.write(&self.stack.to_le_bytes())?;
         Ok(written)
     }
 }
