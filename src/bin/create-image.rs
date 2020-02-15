@@ -92,7 +92,10 @@ fn read_program(filename: &str) -> Result<ProgramDescription, &str> {
 
         if name == ".data" {
             data_offset = s.address() as u32;
-            data_size = s.size() as u32;
+            data_size += s.size() as u32;
+        } else if s.get_type() == Ok(ShType::NoBits) {
+            data_size += s.size() as u32;
+            continue;
         } else if text_offset == 0 && s.size() != 0 {
             text_offset = s.address() as u32;
         }
