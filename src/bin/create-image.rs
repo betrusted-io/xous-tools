@@ -68,23 +68,23 @@ fn read_program(filename: &str) -> Result<ProgramDescription, &str> {
 
     for s in elf.section_iter() {
         let name = s.get_name(&elf).unwrap_or("<<error>>");
-        if s.get_type() == Ok(ShType::NoBits) {
-            // println!("(Skipping section {} -- invalid type)", name);
-            continue;
-        }
+        // if s.get_type() == Ok(ShType::NoBits) {
+        //     println!("(Skipping section {} -- invalid type)", name);
+        //     continue;
+        // }
 
         if s.address() == 0 {
-            // println!("(Skipping section {} -- invalid address)", name);
+            println!("(Skipping section {} -- invalid address)", name);
             continue;
         }
 
-        // println!("Section {}:", name);
-        // println!("    flags:            {:?}", s.flags());
-        // println!("    type:             {:?}", s.get_type());
-        // println!("    address:          {:08x}", s.address());
-        // println!("    offset:           {:08x}", s.offset());
-        // println!("    size:             {:?}", s.size());
-        // println!("    link:             {:?}", s.link());
+        println!("Section {}:", name);
+        println!("    flags:            {:?}", s.flags());
+        println!("    type:             {:?}", s.get_type());
+        println!("    address:          {:08x}", s.address());
+        println!("    offset:           {:08x}", s.offset());
+        println!("    size:             {:?}", s.size());
+        println!("    link:             {:?}", s.link());
         size += s.size();
         if size & 3 != 0 {
             println!("Size is not padded!");
