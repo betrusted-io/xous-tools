@@ -160,6 +160,7 @@ fn main() {
                 .long("init")
                 .takes_value(true)
                 .multiple(true)
+                .number_of_values(1)
                 .help("Initial program to load"),
         )
         .arg(
