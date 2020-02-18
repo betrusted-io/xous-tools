@@ -54,11 +54,11 @@ impl fmt::Display for XousArguments {
 }
 
 impl XousArguments {
-    pub fn new(ram_start: XousSize, ram_length: XousSize, ram_name: &str) -> XousArguments {
+    pub fn new(ram_start: XousSize, ram_length: XousSize, ram_name: u32) -> XousArguments {
         XousArguments {
             ram_start,
             ram_length,
-            ram_name: make_type!(ram_name),
+            ram_name,
             arguments: vec![],
         }
     }

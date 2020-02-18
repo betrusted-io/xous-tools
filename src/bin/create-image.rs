@@ -192,8 +192,9 @@ fn main() {
 
     let mut ram_offset = Default::default();
     let mut ram_size = Default::default();
-    let mut ram_name = "sram".to_owned();
+    let mut ram_name = MemoryRegion::make_name("sram");
     let mut regions = MemoryRegions::new();
+    let mut memory_required = 0;
 
     if let Some(val) = matches.value_of("ram") {
         let ram_parts: Vec<&str> = val.split(":").collect();
@@ -217,6 +218,8 @@ fn main() {
                 return;
             }
         };
+
+        memory_required += ram_size / 4096;
     }
 
     if let Some(csr_csv) = matches.value_of("csv") {
@@ -240,22 +243,16 @@ fn main() {
         }
 
         // Now that we know which block is ram, add the other regions.
-        let found_ram_name = found_ram_name.unwrap();
+        let found_ram_name = MemoryRegion::make_name(&found_ram_name.unwrap());
         for (k, v) in &hv.regions {
-            let mut region_name = k.clone();
-            region_name.push_str("    ");
-            region_name.truncate(4);
-            if *k == found_ram_name {
-                // println!(
-                //     "Skipping ram block {} ({:08x} - {:08x})",
-                //     k,
-                //     ram_offset,
-                //     ram_offset + ram_size
-                // );
-                ram_name = region_name.clone();
+            let region_name = MemoryRegion::make_name(k);
+            // DOn't add the RAM section to the extra regions block.
+            if region_name == found_ram_name {
+                ram_name = region_name;
                 continue;
             }
-            regions.add(MemoryRegion::new(v.start, v.length, &region_name));
+            regions.add(MemoryRegion::new(v.start, v.length, region_name));
+            memory_required += ram_size / 4096;
         }
     }
 
@@ -275,7 +272,7 @@ fn main() {
         }
     }
 
-    let mut args = XousArguments::new(ram_offset, ram_size, &ram_name);
+    let mut args = XousArguments::new(ram_offset, ram_size, ram_name);
 
     if regions.len() > 0 {
         args.add(regions);
@@ -329,5 +326,6 @@ fn main() {
             .expect("Couldn't write kernel");
     }
 
+    println!("Runtime will require {} bytes to track memory allocations", memory_required);
     println!("Image created in file {}", output_filename);
 }

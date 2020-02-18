@@ -2,6 +2,15 @@ use crate::xous_arguments::{XousArgument, XousArgumentCode, XousSize};
 use std::fmt;
 use std::io;
 
+/// Convert a four-letter string into a 32-bit int.
+macro_rules! make_type {
+    ($fcc:expr) => {{
+        let mut c: [u8; 4] = Default::default();
+        c.copy_from_slice($fcc.as_bytes());
+        u32::from_le_bytes(c)
+    }};
+}
+
 #[derive(Debug)]
 pub struct MemoryRegion {
     /// Starting offset (in bytes)
@@ -27,7 +36,8 @@ impl fmt::Display for MemoryRegions {
             writeln!(
                 f,
                 "        {} ({:08x}): {:08x} - {:08x}",
-                tag_name_str, region.name,
+                tag_name_str,
+                region.name,
                 region.start,
                 region.start + region.length
             )?;
@@ -37,8 +47,31 @@ impl fmt::Display for MemoryRegions {
 }
 
 impl MemoryRegion {
-    pub fn new(start: XousSize, length: XousSize, name: &str) -> MemoryRegion {
-        MemoryRegion { start, length, name: make_type!(name) }
+    pub fn new(start: XousSize, length: XousSize, name: u32) -> MemoryRegion {
+        MemoryRegion {
+            start,
+            length,
+            name,
+        }
+    }
+
+    pub fn make_name(name: &str) -> u32 {
+        match name {
+            "sram_ext" => make_type!("SrEx"),
+            "sram" => make_type!("SrIn"),
+            "memlcd" => make_type!("Disp"),
+            "vexriscv_debug" => make_type!("VexD"),
+            "csr" => make_type!("CSRs"),
+            "audio" => make_type!("Audi"),
+            "rom" => make_type!("ROMd"),
+            "spiflash" => make_type!("SpFl"),
+            other => {
+                let mut region_name = other.to_owned();
+                region_name.push_str("    ");
+                region_name.truncate(4);
+                make_type!(region_name)
+            }
+        }
     }
 }
 
