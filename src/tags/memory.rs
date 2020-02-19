@@ -21,6 +21,9 @@ pub struct MemoryRegion {
 
     /// Region name (as a type)
     name: XousArgumentCode,
+
+    /// Unused
+    padding: u32,
 }
 
 pub struct MemoryRegions {
@@ -52,6 +55,7 @@ impl MemoryRegion {
             start,
             length,
             name,
+            padding: 0,
         }
     }
 
@@ -100,6 +104,7 @@ impl XousArgument for MemoryRegions {
             written = written + output.write(&region.start.to_le_bytes())?;
             written = written + output.write(&region.length.to_le_bytes())?;
             written = written + output.write(&region.name.to_le_bytes())?;
+            written = written + output.write(&0u32.to_le_bytes())?;
         }
         Ok(written)
     }
