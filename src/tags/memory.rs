@@ -63,7 +63,7 @@ impl MemoryRegion {
             "vexriscv_debug" => make_type!("VexD"),
             "csr" => make_type!("CSRs"),
             "audio" => make_type!("Audi"),
-            "rom" => make_type!("ROMd"),
+            "rom" => make_type!("Boot"),
             "spiflash" => make_type!("SpFl"),
             other => {
                 let mut region_name = other.to_owned();
