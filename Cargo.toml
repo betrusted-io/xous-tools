@@ -1,5 +1,5 @@
 [package]
-name = "bootloader"
+name = "xous-tools"
 version = "0.1.0"
 authors = ["Sean Cross <sean@xobs.io>"]
 edition = "2018"
@@ -11,6 +11,7 @@ default-run = "create-image"
 xmas-elf = "0.7.0"
 clap = "2.33"
 csv = "1.1" # Support reading csr.csv
+log = "0"
 
 [[bin]]
 name = "make-tags"

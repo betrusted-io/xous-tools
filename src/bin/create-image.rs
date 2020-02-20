@@ -1,4 +1,4 @@
-extern crate bootloader;
+extern crate xous_tools;
 extern crate xmas_elf;
 #[macro_use]
 extern crate clap;
@@ -6,11 +6,11 @@ extern crate clap;
 use std::fs::File;
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
-use bootloader::tags::init::Init;
-use bootloader::tags::memory::{MemoryRegion, MemoryRegions};
-use bootloader::tags::xkrn::XousKernel;
-use bootloader::utils::{parse_csr_csv, parse_u32};
-use bootloader::xous_arguments::XousArguments;
+use xous_tools::tags::init::Init;
+use xous_tools::tags::memory::{MemoryRegion, MemoryRegions};
+use xous_tools::tags::xkrn::XousKernel;
+use xous_tools::utils::{parse_csr_csv, parse_u32};
+use xous_tools::xous_arguments::XousArguments;
 
 use xmas_elf::program::Type as ProgramType;
 use xmas_elf::sections::ShType;
@@ -53,18 +53,20 @@ fn read_program(filename: &str) -> Result<ProgramDescription, &str> {
     let mut text_offset = 0;
 
     for ph in elf.program_iter() {
-        // println!("Program Header: {:?}", ph);
-        if ph.get_type() == Ok(ProgramType::Load) {
+        println!("Program Header: {:?}", ph);
+        if ph.get_type() == Ok(ProgramType::Load) && ph.flags().is_execute() {
             expected_size = ph.file_size();
             program_offset = ph.offset();
         }
-        // println!("Physical address: {:08x}", ph.physical_addr());
-        // println!("Virtual address: {:08x}", ph.virtual_addr());
+        println!("Physical address: {:08x}", ph.physical_addr());
+        println!("Virtual address: {:08x}", ph.virtual_addr());
+        println!("Offset: {:08x}", ph.offset());
+        println!("Size: {:08x}", ph.file_size());
     }
-    // println!(
-    //     "File should be {} bytes, and program starts at 0x{:x}",
-    //     expected_size, program_offset
-    // );
+    println!(
+        "File should be {} bytes, and program starts at 0x{:x}",
+        expected_size, program_offset
+    );
 
     for s in elf.section_iter() {
         let name = s.get_name(&elf).unwrap_or("<<error>>");
