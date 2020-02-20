@@ -1,135 +1,18 @@
 extern crate xous_tools;
-extern crate xmas_elf;
 #[macro_use]
 extern crate clap;
 
 use std::fs::File;
-use std::io::{Cursor, Read, Seek, SeekFrom, Write};
+use std::io::{Seek, SeekFrom, Write};
 
+use xous_tools::elf::read_program;
 use xous_tools::tags::init::Init;
 use xous_tools::tags::memory::{MemoryRegion, MemoryRegions};
 use xous_tools::tags::xkrn::XousKernel;
 use xous_tools::utils::{parse_csr_csv, parse_u32};
 use xous_tools::xous_arguments::XousArguments;
 
-use xmas_elf::program::Type as ProgramType;
-use xmas_elf::sections::ShType;
-use xmas_elf::ElfFile;
-
 use clap::{App, Arg};
-
-struct ProgramDescription {
-    /// Virtual address of .text section in RAM
-    text_offset: u32,
-
-    /// Virtual address of .data and .bss section in RAM
-    data_offset: u32,
-
-    /// Size of .data and .bss section
-    data_size: u32,
-
-    /// Virtual address of the entrypoint
-    entry_point: u32,
-
-    /// Program contents
-    program: Vec<u8>,
-}
-
-fn read_program(filename: &str) -> Result<ProgramDescription, &str> {
-    let mut b = Vec::new();
-    {
-        let mut fi = File::open(filename).expect("Couldn't open program");
-        fi.read_to_end(&mut b).expect("Couldn't read elf file");
-    }
-    let elf = ElfFile::new(&b).expect("Couldn't parse elf file");
-    let entry_point = elf.header.pt2.entry_point() as u32;
-    let mut program_data = Cursor::new(Vec::new());
-
-    let mut expected_size = 0;
-    let mut program_offset = 0;
-    let mut size = 0;
-    let mut data_offset = 0;
-    let mut data_size = 0;
-    let mut text_offset = 0;
-
-    for ph in elf.program_iter() {
-        println!("Program Header: {:?}", ph);
-        if ph.get_type() == Ok(ProgramType::Load) && ph.flags().is_execute() {
-            expected_size = ph.file_size();
-            program_offset = ph.offset();
-        }
-        println!("Physical address: {:08x}", ph.physical_addr());
-        println!("Virtual address: {:08x}", ph.virtual_addr());
-        println!("Offset: {:08x}", ph.offset());
-        println!("Size: {:08x}", ph.file_size());
-    }
-    println!(
-        "File should be {} bytes, and program starts at 0x{:x}",
-        expected_size, program_offset
-    );
-
-    for s in elf.section_iter() {
-        let name = s.get_name(&elf).unwrap_or("<<error>>");
-        // if s.get_type() == Ok(ShType::NoBits) {
-        //     println!("(Skipping section {} -- invalid type)", name);
-        //     continue;
-        // }
-
-        if s.address() == 0 {
-            println!("(Skipping section {} -- invalid address)", name);
-            continue;
-        }
-
-        println!("Section {}:", name);
-        println!("    flags:            {:?}", s.flags());
-        println!("    type:             {:?}", s.get_type());
-        println!("    address:          {:08x}", s.address());
-        println!("    offset:           {:08x}", s.offset());
-        println!("    size:             {:?}", s.size());
-        println!("    link:             {:?}", s.link());
-        size += s.size();
-        if size & 3 != 0 {
-            println!("Size is not padded!");
-        }
-
-        if name == ".data" {
-            data_offset = s.address() as u32;
-            data_size += s.size() as u32;
-        } else if s.get_type() == Ok(ShType::NoBits) {
-            data_size += s.size() as u32;
-            continue;
-        } else if text_offset == 0 && s.size() != 0 {
-            text_offset = s.address() as u32;
-        }
-        if s.size() == 0 {
-            continue;
-        }
-        program_data
-            .seek(SeekFrom::Start(s.offset() - program_offset))
-            .expect("Couldn't seek file");
-        let section_data = s.raw_data(&elf);
-        program_data
-            .write(section_data)
-            .expect("Couldn't save data");
-    }
-    let observed_size = program_data
-        .seek(SeekFrom::End(0))
-        .expect("Couldn't seek to end of file");
-    if expected_size != observed_size {
-        panic!(
-            "Expected to read {} bytes, but actually read {} bytes",
-            expected_size, observed_size
-        );
-    }
-
-    Ok(ProgramDescription {
-        entry_point,
-        program: program_data.into_inner(),
-        data_size,
-        data_offset,
-        text_offset,
-    })
-}
 
 fn pad_file_to_4_bytes(f: &mut File) {
     while f
@@ -329,6 +212,9 @@ fn main() {
             .expect("Couldn't write kernel");
     }
 
-    println!("Runtime will require {} bytes to track memory allocations", memory_required);
+    println!(
+        "Runtime will require {} bytes to track memory allocations",
+        memory_required
+    );
     println!("Image created in file {}", output_filename);
 }

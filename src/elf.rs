@@ -1,10 +1,9 @@
-
+use log::debug;
 use std::fs::File;
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use xmas_elf::program::Type as ProgramType;
 use xmas_elf::sections::ShType;
 use xmas_elf::ElfFile;
-use log::debug;
 
 pub struct ProgramDescription {
     /// Virtual address of .text section in RAM
@@ -62,7 +61,8 @@ pub fn read_program(filename: &str) -> Result<ProgramDescription, ElfReadError> 
     let mut b = Vec::new();
     {
         let mut fi = File::open(filename).or_else(|x| Err(ElfReadError::OpenElfError(x)))?;
-        fi.read_to_end(&mut b).or_else(|x| Err(ElfReadError::ReadFileError(x)))?;
+        fi.read_to_end(&mut b)
+            .or_else(|x| Err(ElfReadError::ReadFileError(x)))?;
     }
     let elf = ElfFile::new(&b).or_else(|x| Err(ElfReadError::ParseElfError(x)))?;
     let entry_point = elf.header.pt2.entry_point() as u32;
@@ -142,12 +142,25 @@ pub fn read_program(filename: &str) -> Result<ProgramDescription, ElfReadError> 
         let header = headers
             .iter()
             .find(|&x| {
-                debug!("Comparing {:08x}:{:08x} to {:08x}:{:08x}", s.address(), s.address()+s.size(), x.virt, x.virt+x.length);
-                (s.address() as usize) >= x.virt && ((s.address() + s.size()) as usize) <= x.virt + x.length
+                debug!(
+                    "Comparing {:08x}:{:08x} to {:08x}:{:08x}",
+                    s.address(),
+                    s.address() + s.size(),
+                    x.virt,
+                    x.virt + x.length
+                );
+                (s.address() as usize) >= x.virt
+                    && ((s.address() + s.size()) as usize) <= x.virt + x.length
             })
             .ok_or(ElfReadError::SectionRangeError)?;
         let program_offset = s.address() - header.virt as u64 + header.phys as u64 - phys_offset;
-        debug!("s offset: {:08x}  program_offset: {:08x}  Bytes: {}  seek: {}", s.offset(), program_offset, s.raw_data(&elf).len(), program_offset);
+        debug!(
+            "s offset: {:08x}  program_offset: {:08x}  Bytes: {}  seek: {}",
+            s.offset(),
+            program_offset,
+            s.raw_data(&elf).len(),
+            program_offset
+        );
         program_data
             .seek(SeekFrom::Start(program_offset))
             .or_else(|x| Err(ElfReadError::FileSeekError(x)))?;
