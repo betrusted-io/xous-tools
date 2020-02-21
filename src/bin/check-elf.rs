@@ -1,9 +1,9 @@
 // extern crate bootloader;
 // extern crate xmas_elf;
 extern crate xous_tools;
-use xous_tools::elf;
 use std::fs::File;
 use std::io::Write;
+use xous_tools::elf;
 
 fn main() {
     let pd = elf::read_program("../kernel/target/riscv32i-unknown-none-elf/debug/xous-kernel")
