@@ -111,12 +111,14 @@ fn main() {
     if let Some(csr_csv) = matches.value_of("csv") {
         let hv = parse_csr_csv(csr_csv).unwrap();
         let mut found_ram_name = None;
-
+        fn round_mem(src: u32) -> u32 {
+            (src + 4095) & !4095
+        }
         // Look for the largest "ram" block, which we'll treat as main memory
         for (k, v) in &hv.regions {
             if k.find("ram").is_some() {
                 if v.length > ram_size {
-                    ram_size = v.length;
+                    ram_size = round_mem(v.length);
                     ram_offset = v.start;
                     found_ram_name = Some(k.clone());
                 }
@@ -131,14 +133,18 @@ fn main() {
         // Now that we know which block is ram, add the other regions.
         let found_ram_name = MemoryRegion::make_name(&found_ram_name.unwrap());
         for (k, v) in &hv.regions {
+            memory_required += round_mem(v.length) / 4096;
             let region_name = MemoryRegion::make_name(k);
-            // DOn't add the RAM section to the extra regions block.
+            // Don't add the RAM section to the extra regions block.
             if region_name == found_ram_name {
                 ram_name = region_name;
                 continue;
             }
-            regions.add(MemoryRegion::new(v.start, v.length, region_name));
-            memory_required += ram_size / 4096;
+            // Don't add empty sections.
+            if round_mem(v.length) == 0 {
+                continue;
+            }
+            regions.add(MemoryRegion::new(v.start, round_mem(v.length), region_name));
         }
     }
 
