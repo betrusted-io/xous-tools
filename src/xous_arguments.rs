@@ -1,7 +1,8 @@
 use std::fmt;
-use std::io;
+use std::io::{Cursor, Write, Result};
 pub type XousArgumentCode = u32;
 pub type XousSize = u32;
+use crc::{crc16, Hasher16};
 
 #[macro_export]
 macro_rules! make_type {
@@ -21,7 +22,7 @@ pub trait XousArgument: fmt::Display {
 
     /// Write the contents of this argument to the specified writer.
     /// Return the number of bytes written.
-    fn serialize(&self, output: &mut dyn std::io::Write) -> io::Result<usize>;
+    fn serialize(&self, output: &mut dyn Write) -> Result<usize>;
 }
 
 pub struct XousArguments {
@@ -65,42 +66,60 @@ impl XousArguments {
 
     pub fn add<T: 'static>(&mut self, arg: T)
     where
-        T: XousArgument + Sized {
+        T: XousArgument + Sized,
+    {
         self.arguments.push(Box::new(arg));
     }
 
-    pub fn write<T>(&self, mut w: T) -> io::Result<()>
+    pub fn write<T>(&self, mut w: T) -> Result<()>
     where
-        T: io::Write,
+        T: Write,
     {
         let total_length = self.len();
 
-        // XArg tag header
-        w.write(&make_type!("XArg").to_le_bytes())?;
-        w.write(&0u16.to_le_bytes())?; // CRC16
-        w.write(&5u16.to_le_bytes())?; // Size (in words)
 
         // XArg tag contents
-        w.write(&((total_length / 4) as u32).to_le_bytes())?;
-        w.write(&1u32.to_le_bytes())?; // Version
-        w.write(&(self.ram_start as u32).to_le_bytes())?;
-        w.write(&(self.ram_length as u32).to_le_bytes())?;
-        w.write(&(self.ram_name as u32).to_le_bytes())?;
+        let mut tag_data = Cursor::new(Vec::new());
+        tag_data.write(&((total_length / 4) as u32).to_le_bytes())?;
+        tag_data.write(&1u32.to_le_bytes())?; // Version
+        tag_data.write(&(self.ram_start as u32).to_le_bytes())?;
+        tag_data.write(&(self.ram_length as u32).to_le_bytes())?;
+        tag_data.write(&(self.ram_name as u32).to_le_bytes())?;
+
+        assert!((tag_data.get_ref().len() & 3) == 0, "tag data was not a multiple of 4 bytes!");
+
+        let mut digest = crc16::Digest::new(crc16::X25);
+        // XArg tag header
+        w.write(&make_type!("XArg").to_le_bytes())?;
+        digest.write(tag_data.get_ref());
+        w.write(&digest.sum16().to_le_bytes())?; // CRC16
+        w.write(&((tag_data.get_ref().len() / 4) as u16).to_le_bytes())?; // Size (in words)
+        w.write(tag_data.get_ref())?;
 
         // Write out each subsequent argument
         for arg in &self.arguments {
-            w.write(&arg.code().to_le_bytes())?;
-            w.write(&0u16.to_le_bytes())?;
 
+            let mut tag_data = Cursor::new(Vec::new());
             let advertised_len = arg.length() as u32;
-            w.write(&((advertised_len / 4) as u16).to_le_bytes())?;
-
-            let actual_len = arg.serialize(&mut w)? as u32;
+            let actual_len = arg.serialize(&mut tag_data)? as u32;
             assert_eq!(
                 advertised_len, actual_len,
                 "argument advertised it would write {} bytes, but it wrote {} bytes",
                 advertised_len, actual_len
             );
+            assert_eq!(
+                tag_data.get_ref().len() as u32, actual_len,
+                "argument said it wrote {} bytes, but it actually wrote {} bytes",
+                actual_len, tag_data.get_ref().len()
+            );
+
+            let mut digest = crc16::Digest::new(crc16::X25);
+            // XArg tag header
+            w.write(&arg.code().to_le_bytes())?;
+            digest.write(tag_data.get_ref());
+            w.write(&digest.sum16().to_le_bytes())?; // CRC16
+            w.write(&((tag_data.get_ref().len() / 4) as u16).to_le_bytes())?; // Size (in words)
+            w.write(tag_data.get_ref())?;
         }
         Ok(())
     }
