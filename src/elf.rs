@@ -55,7 +55,26 @@ pub enum ElfReadError {
     WriteSectionError(std::io::Error),
 }
 
-pub fn read_program(filename: &str) -> Result<ProgramDescription, ElfReadError> {
+use std::fmt;
+impl fmt::Display for ElfReadError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use ElfReadError::*;
+        match self {
+            WrongReadSize(e, a) => write!(f, "expected to read {} bytes, but instead read {}", e, a),
+            SeekFromEndError(e) => write!(f, "couldn't seek from the end of the file: {}", e),
+            ReadFileError(e) => write!(f, "couldn't read from the file: {}", e),
+            OpenElfError(e) => write!(f, "couldn't open the elf file: {}", e),
+            ParseElfError(e) => write!(f, "couldn't parse the elf file: {}", e),
+            SectionRangeError => write!(f, "elf section pointed outside of the file"),
+            FileSeekError(e) => write!(f, "couldn't seek in the output file: {}", e),
+            WriteSectionError(e) => write!(f, "couldn't write a section to the output file: {}", e),
+        }
+    }
+}
+
+use std::path::Path;
+pub fn read_program<P: AsRef<Path>>(filename: P) -> Result<ProgramDescription, ElfReadError> {
+
     let mut headers = vec![];
 
     let mut b = Vec::new();

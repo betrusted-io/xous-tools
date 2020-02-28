@@ -20,7 +20,7 @@ name = "make-tags"
 name = "read-tags"
 
 [[bin]]
-name = "check-elf"
+name = "copy-object"
 
 [[bin]]
 name = "create-image"
