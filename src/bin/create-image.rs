@@ -179,6 +179,10 @@ fn main() {
         args.add(regions);
     }
 
+    if matches.is_present("debug") {
+        args.add(Bflg::new().debug());
+    }
+
     // Add tags for init and kernel.  These point to the actual data, which should
     // immediately follow the tags.  Therefore, we must know the length of the tags
     // before we create them.
@@ -207,10 +211,6 @@ fn main() {
         );
         program_offset += program_description.program.len();
         args.add(init);
-    }
-
-    if matches.is_present("debug") {
-        args.add(Bflg::new().debug());
     }
 
     println!("Arguments: {}", args);
