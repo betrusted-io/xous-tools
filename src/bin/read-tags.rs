@@ -1,30 +1,39 @@
+use crc::{crc16, Hasher16};
 use std::env;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 use std::process;
+use std::slice;
 use xous_tools::make_type;
 
-fn read_next_tag(b8: *mut u8, byte_offset: &mut usize) -> Result<(u32, u32, u32), ()> {
+fn read_next_tag(b8: *mut u8, byte_offset: &mut usize) -> Result<(u32, u16, u32), ()> {
     let tag_name = u32::from_le(unsafe { (b8 as *mut u32).add(*byte_offset / 4).read() }) as u32;
     *byte_offset += 4;
-    let crc = u16::from_le(unsafe { (b8 as *mut u16).add(*byte_offset / 2).read() }) as u32;
+    let crc = u16::from_le(unsafe { (b8 as *mut u16).add(*byte_offset / 2).read() }) as u16;
     *byte_offset += 2;
     let size = u16::from_le(unsafe { (b8 as *mut u16).add(*byte_offset / 2).read() }) as u32 * 4;
     *byte_offset += 2;
     Ok((tag_name, crc, size))
 }
 
-fn process_tag(b8: *mut u8, size: u32, byte_offset: &mut usize) -> Result<(), ()> {
-    let mut offset = 0;
+fn print_tag(b8: *mut u8, size: u32, crc: u16, byte_offset: &mut usize) -> Result<(), ()> {
+    let data = unsafe { slice::from_raw_parts(b8.add(*byte_offset) as *const u8, size as usize) };
+    let data_32 = unsafe { slice::from_raw_parts(b8.add(*byte_offset) as *const u32, size as usize / 4) };
+    *byte_offset += size as usize;
 
-    while offset < size {
-        print!(" {:08x}", unsafe {
-            (b8 as *mut u32).add(*byte_offset / 4).read()
-        });
-        offset = offset + 4;
-        *byte_offset = *byte_offset + 4;
+    let mut digest = crc16::Digest::new(crc16::X25);
+    digest.write(data);
+
+    for byte in data_32 {
+        print!(" {:08x}", byte);
+    }
+
+    if digest.sum16() == crc {
+        print!("  CRC: OK");
+    } else {
+        print!("  CRC: FAIL (calc: {:04x})", digest.sum16());
     }
     println!("");
     Ok(())
@@ -50,7 +59,7 @@ fn process_tags(b8: *mut u8) {
             "{:08x} ({}) ({} bytes, crc: {:04x}):",
             tag_name, tag_name_str, size, crc
         );
-        process_tag(b8, size, &mut byte_offset).expect("couldn't read next data");
+        print_tag(b8, size, crc, &mut byte_offset).expect("couldn't read next data");
 
         if byte_offset as u32 == total_words {
             return;
