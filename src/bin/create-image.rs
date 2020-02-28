@@ -1,4 +1,3 @@
-extern crate xous_tools;
 #[macro_use]
 extern crate clap;
 
@@ -9,6 +8,7 @@ use xous_tools::elf::read_program;
 use xous_tools::tags::init::Init;
 use xous_tools::tags::memory::{MemoryRegion, MemoryRegions};
 use xous_tools::tags::xkrn::XousKernel;
+use xous_tools::tags::bflg::Bflg;
 use xous_tools::utils::{parse_csr_csv, parse_u32};
 use xous_tools::xous_arguments::XousArguments;
 
@@ -67,6 +67,13 @@ fn main() {
                 .value_name("OFFSET:SIZE")
                 .required_unless("csv")
                 .help("RAM offset and size, in the form of [offset]:[size]"),
+        )
+        .arg(
+            Arg::with_name("debug")
+                .short("d")
+                .long("debug")
+                .takes_value(false)
+                .help("Reduce kernel-userspace security and enable debugging programs"),
         )
         .arg(
             Arg::with_name("output")
@@ -198,6 +205,10 @@ fn main() {
         );
         program_offset += program_description.program.len();
         args.add(init);
+    }
+
+    if matches.is_present("debug") {
+        args.add(Bflg::new().debug());
     }
 
     println!("Arguments: {}", args);
