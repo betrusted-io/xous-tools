@@ -1,7 +1,9 @@
-extern crate xous_tools;
+use std::env;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
+use std::path::Path;
+use std::process;
 use xous_tools::make_type;
 
 fn read_next_tag(b8: *mut u8, byte_offset: &mut usize) -> Result<(u32, u32, u32), ()> {
@@ -45,7 +47,7 @@ fn process_tags(b8: *mut u8) {
         let tag_name_bytes = tag_name.to_le_bytes();
         let tag_name_str = String::from_utf8_lossy(&tag_name_bytes);
         print!(
-            "{:08x} ({}) ({} bytes, crc: {}):",
+            "{:08x} ({}) ({} bytes, crc: {:04x}):",
             tag_name, tag_name_str, size, crc
         );
         process_tag(b8, size, &mut byte_offset).expect("couldn't read next data");
@@ -63,9 +65,20 @@ fn process_tags(b8: *mut u8) {
 }
 
 fn doit() -> io::Result<()> {
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 2 {
+        println!(
+            "Usage: {} args.bin",
+            args.get(0).unwrap_or(&"read-tags".to_owned())
+        );
+        process::exit(1);
+    }
+
+    let input_filename = Path::new(args.get(1).unwrap()).to_path_buf();
+
     let mut tag_buf = vec![];
     {
-        let mut f = File::open("args.bin")?;
+        let mut f = File::open(input_filename)?;
         f.read_to_end(&mut tag_buf)?;
     }
 
