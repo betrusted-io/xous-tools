@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate clap;
 
+extern crate crc;
+
 use std::fs::File;
 use std::io::{Seek, SeekFrom, Write};
 
