@@ -10,7 +10,8 @@ default-run = "create-image"
 [dependencies]
 xmas-elf = "0.7.0"
 clap = "2.33"
-csv = "1.1" # Support reading csr.csv
+crc = "1.8.1"
+csv = "1.1"
 log = "0"
 
 [[bin]]
