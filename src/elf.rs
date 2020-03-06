@@ -9,11 +9,17 @@ pub struct ProgramDescription {
     /// Virtual address of .text section in RAM
     pub text_offset: u32,
 
-    /// Virtual address of .data and .bss section in RAM
+    /// Size of the .text section in RAM
+    pub text_size: u32,
+
+    /// Virtual address of .data section in RAM
     pub data_offset: u32,
 
-    /// Size of .data and .bss section
+    /// Size of .data section
     pub data_size: u32,
+
+    /// Size of the .bss section
+    pub bss_size: u32,
 
     /// Virtual address of the entrypoint
     pub entry_point: u32,
@@ -60,7 +66,9 @@ impl fmt::Display for ElfReadError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use ElfReadError::*;
         match self {
-            WrongReadSize(e, a) => write!(f, "expected to read {} bytes, but instead read {}", e, a),
+            WrongReadSize(e, a) => {
+                write!(f, "expected to read {} bytes, but instead read {}", e, a)
+            }
             SeekFromEndError(e) => write!(f, "couldn't seek from the end of the file: {}", e),
             ReadFileError(e) => write!(f, "couldn't read from the file: {}", e),
             OpenElfError(e) => write!(f, "couldn't open the elf file: {}", e),
@@ -74,7 +82,6 @@ impl fmt::Display for ElfReadError {
 
 use std::path::Path;
 pub fn read_program<P: AsRef<Path>>(filename: P) -> Result<ProgramDescription, ElfReadError> {
-
     let mut headers = vec![];
 
     let mut b = Vec::new();
@@ -92,6 +99,8 @@ pub fn read_program<P: AsRef<Path>>(filename: P) -> Result<ProgramDescription, E
     let mut data_offset = 0;
     let mut data_size = 0;
     let mut text_offset = 0;
+    let mut text_size = 0;
+    let mut bss_size = 0;
     let mut phys_offset = 0;
 
     debug!("ELF: {:?}", elf.header);
@@ -118,12 +127,9 @@ pub fn read_program<P: AsRef<Path>>(filename: P) -> Result<ProgramDescription, E
         expected_size, entry_point
     );
 
+    let mut program_offset = 0;
     for s in elf.section_iter() {
         let name = s.get_name(&elf).unwrap_or("<<error>>");
-        // if s.get_type() == Ok(ShType::NoBits) {
-        //     debug!("(Skipping section {} -- invalid type)", name);
-        //     continue;
-        // }
 
         if s.address() == 0 {
             debug!("(Skipping section {} -- invalid address)", name);
@@ -131,6 +137,9 @@ pub fn read_program<P: AsRef<Path>>(filename: P) -> Result<ProgramDescription, E
         }
 
         debug!("Section {}:", name);
+        debug!("Official header:");
+        debug!("{:?}", s);
+        debug!("Interpreted:");
         debug!("    flags:            {:?}", s.flags());
         debug!("    type:             {:?}", s.get_type());
         debug!("    address:          {:08x}", s.address());
@@ -147,11 +156,33 @@ pub fn read_program<P: AsRef<Path>>(filename: P) -> Result<ProgramDescription, E
             data_size += s.size() as u32;
         } else if s.get_type() == Ok(ShType::NoBits) {
             // Add bss-type sections to the data section
-            data_size += s.size() as u32;
-            debug!("Skipping {} because nobits", name);
+            bss_size += s.size() as u32;
+            debug!(
+                "Skipping copy of {} @ {:08x} because nobits",
+                name,
+                s.address()
+            );
             continue;
         } else if text_offset == 0 && s.size() != 0 {
             text_offset = s.address() as u32;
+            text_size += s.size() as u32;
+        } else {
+            if text_offset + text_size != s.address() as u32 {
+                let bytes_to_add = s.address() - (text_offset + text_size) as u64;
+                debug!("Padding text size by {} bytes...", bytes_to_add);
+                program_data
+                    .seek(SeekFrom::Current(bytes_to_add as i64))
+                    .or_else(|x| Err(ElfReadError::FileSeekError(x)))?;
+                text_size += bytes_to_add as u32;
+                program_offset += bytes_to_add as u64;
+                // panic!(
+                //     "size not correct!  should be {:08x}, was {:08x}, need to add {} bytes",
+                //     text_offset + text_size,
+                //     s.address(),
+                //     s.address() - (text_offset + text_size) as u64,
+                // );
+            }
+            text_size += s.size() as u32;
         }
         if s.size() == 0 {
             debug!("Skipping {} because size is 0", name);
@@ -172,7 +203,7 @@ pub fn read_program<P: AsRef<Path>>(filename: P) -> Result<ProgramDescription, E
                     && ((s.address() + s.size()) as usize) <= x.virt + x.length
             })
             .ok_or(ElfReadError::SectionRangeError)?;
-        let program_offset = s.address() - header.virt as u64 + header.phys as u64 - phys_offset;
+        // let program_offset = s.address() - header.virt as u64 + header.phys as u64 - phys_offset;
         debug!(
             "s offset: {:08x}  program_offset: {:08x}  Bytes: {}  seek: {}",
             s.offset(),
@@ -180,13 +211,18 @@ pub fn read_program<P: AsRef<Path>>(filename: P) -> Result<ProgramDescription, E
             s.raw_data(&elf).len(),
             program_offset
         );
+        let section_data = s.raw_data(&elf);
+        debug!(
+            "Section start: {:02x} {:02x} {:02x} {:02x} going into offset 0x{:08x}",
+            section_data[0], section_data[1], section_data[2], section_data[3], program_offset
+        );
         program_data
             .seek(SeekFrom::Start(program_offset))
             .or_else(|x| Err(ElfReadError::FileSeekError(x)))?;
-        let section_data = s.raw_data(&elf);
         program_data
             .write(section_data)
             .or_else(|x| Err(ElfReadError::WriteSectionError(x)))?;
+        program_offset += section_data.len() as u64;
     }
     let observed_size = program_data
         .seek(SeekFrom::End(0))
@@ -194,12 +230,23 @@ pub fn read_program<P: AsRef<Path>>(filename: P) -> Result<ProgramDescription, E
     if expected_size != observed_size {
         Err(ElfReadError::WrongReadSize(expected_size, observed_size))
     } else {
+        debug!("Text size: {} bytes", text_size);
+        debug!("Text offset: {:08x}", text_offset);
+        debug!("Data size: {} bytes", data_size);
+        debug!("Data offset: {:08x}", data_offset);
+        debug!(
+            "Program size: {} bytes (vs {})",
+            expected_size,
+            text_size + data_size
+        );
         Ok(ProgramDescription {
             entry_point,
             program: program_data.into_inner(),
             data_size,
             data_offset,
             text_offset,
+            text_size,
+            bss_size,
         })
     }
 }

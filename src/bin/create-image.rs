@@ -23,11 +23,13 @@ fn pad_file_to_4_bytes(f: &mut File) {
         & 3
         != 0
     {
+        println!("padding...");
         f.seek(SeekFrom::Current(1)).expect("couldn't pad file");
     }
 }
 
 fn main() {
+    env_logger::init();
     let matches = App::new("Xous Image Creator")
         .version(crate_version!())
         .author("Sean Cross <sean@xobs.io>")
@@ -191,10 +193,11 @@ fn main() {
         + (XousKernel::len() + args.header_len());
     let xkrn = XousKernel::new(
         program_offset as u32,
-        kernel.program.len() as u32,
         kernel.text_offset,
+        kernel.text_size,
         kernel.data_offset,
         kernel.data_size,
+        kernel.bss_size,
         kernel.entry_point,
     );
     program_offset += kernel.program.len();
@@ -203,10 +206,11 @@ fn main() {
     for program_description in &programs {
         let init = Init::new(
             program_offset as u32,
-            program_description.program.len() as u32,
             program_description.text_offset,
+            program_description.text_size,
             program_description.data_offset,
             program_description.data_size,
+            program_description.bss_size,
             program_description.entry_point,
         );
         program_offset += program_description.program.len();
@@ -224,11 +228,12 @@ fn main() {
 
     pad_file_to_4_bytes(&mut f);
     f.write(&kernel.program).expect("Couldn't write kernel");
+    println!("Wrote {} bytes", kernel.program.len());
 
     for program_description in &programs {
         pad_file_to_4_bytes(&mut f);
         f.write(&program_description.program)
-            .expect("Couldn't write kernel");
+            .expect("Couldn't write init image");
     }
 
     println!(

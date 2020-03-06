@@ -7,17 +7,20 @@ pub struct XousKernel {
     /// Address of PID1 in RAM (i.e. SPI flash)
     load_offset: u32,
 
-    /// Size of PID1
-    load_size: u32,
-
     /// Virtual address of .text section in RAM
     text_offset: u32,
+
+    /// Size of the kernel, in bytes
+    text_size: u32,
 
     /// Virtual address of .data and .bss section in RAM
     data_offset: u32,
 
-    /// Size of .data and .bss section
+    /// Size of .data section
     data_size: u32,
+
+    /// Size of the .bss section
+    bss_size: u32,
 
     /// Virtual address of the entrypoint
     entrypoint: u32,
@@ -25,27 +28,29 @@ pub struct XousKernel {
 
 impl fmt::Display for XousKernel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "    kernel: {} bytes long, loaded from {:08x} to {:08x} with entrypoint @ {:08x}, and {} bytes of data @ {:08x}",
-            self.load_size, self.load_offset, self.text_offset, self.entrypoint,
-            self.data_size, self.data_offset)
+        writeln!(f, "    kernel text: {} bytes long, loaded from {:08x} to {:08x} with entrypoint @ {:08x}, and {} bytes of data @ {:08x}, {} bytes of .bss",
+            self.text_size, self.load_offset, self.text_offset, self.entrypoint,
+            self.data_size, self.data_offset, self.bss_size)
     }
 }
 
 impl XousKernel {
     pub fn new(
         load_offset: u32,
-        load_size: u32,
         text_offset: u32,
+        text_size: u32,
         data_offset: u32,
         data_size: u32,
+        bss_size: u32,
         entrypoint: u32,
     ) -> XousKernel {
         XousKernel {
             load_offset,
-            load_size,
             text_offset,
+            text_size,
             data_offset,
             data_size,
+            bss_size,
             entrypoint,
         }
     }
@@ -65,10 +70,11 @@ impl XousArgument for XousKernel {
     fn serialize(&self, output: &mut dyn io::Write) -> io::Result<usize> {
         let mut written = 0;
         written += output.write(&self.load_offset.to_le_bytes())?;
-        written += output.write(&self.load_size.to_le_bytes())?;
         written += output.write(&self.text_offset.to_le_bytes())?;
+        written += output.write(&self.text_size.to_le_bytes())?;
         written += output.write(&self.data_offset.to_le_bytes())?;
         written += output.write(&self.data_size.to_le_bytes())?;
+        written += output.write(&self.bss_size.to_le_bytes())?;
         written += output.write(&self.entrypoint.to_le_bytes())?;
         Ok(written)
     }

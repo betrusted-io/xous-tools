@@ -31,11 +31,13 @@ fn main() {
     args.add(regions);
 
     let init = Init::new(
-        0x20500000, 131072, 0x10000000, 0x20000000, 32768, 0x10000000,
+        0x20500000, 131072, 0x10000000, 0x20000000, 32768, 1234, 0x10000000,
     );
     args.add(init);
 
-    let xkrn = XousKernel::new(0x20500000, 65536, 0x02000000, 0x04000000, 32768, 0x02000000);
+    let xkrn = XousKernel::new(
+        0x20500000, 65536, 0x02000000, 0x04000000, 32768, 5678, 0x02000000,
+    );
     args.add(xkrn);
 
     println!("Arguments: {}", args);
