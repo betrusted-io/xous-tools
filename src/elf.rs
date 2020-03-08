@@ -28,12 +28,6 @@ pub struct ProgramDescription {
     pub program: Vec<u8>,
 }
 
-struct ElfHeader {
-    virt: usize,
-    phys: usize,
-    length: usize,
-}
-
 #[derive(Debug)]
 pub enum ElfReadError {
     /// Read an unexpected number of bytes
@@ -82,8 +76,6 @@ impl fmt::Display for ElfReadError {
 
 use std::path::Path;
 pub fn read_program<P: AsRef<Path>>(filename: P) -> Result<ProgramDescription, ElfReadError> {
-    let mut headers = vec![];
-
     let mut b = Vec::new();
     {
         let mut fi = File::open(filename).or_else(|x| Err(ElfReadError::OpenElfError(x)))?;
@@ -94,7 +86,6 @@ pub fn read_program<P: AsRef<Path>>(filename: P) -> Result<ProgramDescription, E
     let entry_point = elf.header.pt2.entry_point() as u32;
     let mut program_data = Cursor::new(Vec::new());
 
-    let mut expected_size = 0;
     let mut size = 0;
     let mut data_offset = 0;
     let mut data_size = 0;
@@ -107,12 +98,6 @@ pub fn read_program<P: AsRef<Path>>(filename: P) -> Result<ProgramDescription, E
     for ph in elf.program_iter() {
         debug!("Program Header: {:?}", ph);
         if ph.get_type() == Ok(ProgramType::Load) {
-            expected_size += ph.file_size();
-            headers.push(ElfHeader {
-                virt: ph.virtual_addr() as usize,
-                phys: ph.physical_addr() as usize,
-                length: ph.file_size() as usize,
-            });
             if phys_offset == 0 {
                 phys_offset = ph.physical_addr();
             }
@@ -122,10 +107,7 @@ pub fn read_program<P: AsRef<Path>>(filename: P) -> Result<ProgramDescription, E
         debug!("Offset: {:08x}", ph.offset());
         debug!("Size: {:08x}", ph.file_size());
     }
-    debug!(
-        "File should be {} bytes, and program starts at 0x{:x}",
-        expected_size, entry_point
-    );
+    debug!("Program starts at 0x{:x}", entry_point);
 
     let mut program_offset = 0;
     for s in elf.section_iter() {
@@ -189,20 +171,6 @@ pub fn read_program<P: AsRef<Path>>(filename: P) -> Result<ProgramDescription, E
             continue;
         }
         debug!("Adding {} to the file", name);
-        let header = headers
-            .iter()
-            .find(|&x| {
-                debug!(
-                    "Comparing {:08x}:{:08x} to {:08x}:{:08x}",
-                    s.address(),
-                    s.address() + s.size(),
-                    x.virt,
-                    x.virt + x.length
-                );
-                (s.address() as usize) >= x.virt
-                    && ((s.address() + s.size()) as usize) <= x.virt + x.length
-            })
-            .ok_or(ElfReadError::SectionRangeError)?;
         // let program_offset = s.address() - header.virt as u64 + header.phys as u64 - phys_offset;
         debug!(
             "s offset: {:08x}  program_offset: {:08x}  Bytes: {}  seek: {}",
@@ -227,26 +195,19 @@ pub fn read_program<P: AsRef<Path>>(filename: P) -> Result<ProgramDescription, E
     let observed_size = program_data
         .seek(SeekFrom::End(0))
         .or_else(|e| Err(ElfReadError::SeekFromEndError(e)))?;
-    if expected_size != observed_size {
-        Err(ElfReadError::WrongReadSize(expected_size, observed_size))
-    } else {
-        debug!("Text size: {} bytes", text_size);
-        debug!("Text offset: {:08x}", text_offset);
-        debug!("Data size: {} bytes", data_size);
-        debug!("Data offset: {:08x}", data_offset);
-        debug!(
-            "Program size: {} bytes (vs {})",
-            expected_size,
-            text_size + data_size
-        );
-        Ok(ProgramDescription {
-            entry_point,
-            program: program_data.into_inner(),
-            data_size,
-            data_offset,
-            text_offset,
-            text_size,
-            bss_size,
-        })
-    }
+
+    debug!("Text size: {} bytes", text_size);
+    debug!("Text offset: {:08x}", text_offset);
+    debug!("Data size: {} bytes", data_size);
+    debug!("Data offset: {:08x}", data_offset);
+    debug!("Program size: {} bytes", observed_size);
+    Ok(ProgramDescription {
+        entry_point,
+        program: program_data.into_inner(),
+        data_size,
+        data_offset,
+        text_offset,
+        text_size,
+        bss_size,
+    })
 }
