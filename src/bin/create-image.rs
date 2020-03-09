@@ -4,29 +4,28 @@ extern crate clap;
 extern crate crc;
 
 use std::fs::File;
-use std::io::{Seek, SeekFrom, Write};
 
-use xous_tools::elf::read_program;
-use xous_tools::tags::init::Init;
+use xous_tools::elf::{read_minielf, read_program};
+use xous_tools::tags::bflg::Bflg;
+use xous_tools::tags::inie::IniE;
 use xous_tools::tags::memory::{MemoryRegion, MemoryRegions};
 use xous_tools::tags::xkrn::XousKernel;
-use xous_tools::tags::bflg::Bflg;
 use xous_tools::utils::{parse_csr_csv, parse_u32};
 use xous_tools::xous_arguments::XousArguments;
 
 use clap::{App, Arg};
 
-fn pad_file_to_4_bytes(f: &mut File) {
-    while f
-        .seek(SeekFrom::Current(0))
-        .expect("couldn't check file position")
-        & 3
-        != 0
-    {
-        println!("padding...");
-        f.seek(SeekFrom::Current(1)).expect("couldn't pad file");
-    }
-}
+// fn pad_file_to_4_bytes(f: &mut File) {
+//     while f
+//         .seek(SeekFrom::Current(0))
+//         .expect("couldn't check file position")
+//         & 3
+//         != 0
+//     {
+//         println!("padding...");
+//         f.seek(SeekFrom::Current(1)).expect("couldn't pad file");
+//     }
+// }
 
 fn main() {
     env_logger::init();
@@ -159,22 +158,6 @@ fn main() {
         }
     }
 
-    let kernel = read_program(
-        matches
-            .value_of("kernel")
-            .expect("kernel was somehow missing"),
-    )
-    .expect("unable to read kernel");
-    let mut programs = vec![];
-    if let Some(program_paths) = matches.values_of("init") {
-        for program_path in program_paths {
-            programs.push(
-                read_program(program_path)
-                    .expect(&format!("unable to read program {}", program_path)),
-            )
-        }
-    }
-
     let mut args = XousArguments::new(ram_offset, ram_size, ram_name);
 
     if regions.len() > 0 {
@@ -185,56 +168,43 @@ fn main() {
         args.add(Bflg::new().debug());
     }
 
-    // Add tags for init and kernel.  These point to the actual data, which should
-    // immediately follow the tags.  Therefore, we must know the length of the tags
-    // before we create them.
-    let mut program_offset = args.len() as usize
-        + (Init::len() + args.header_len()) * programs.len()
-        + (XousKernel::len() + args.header_len());
+    let kernel = read_program(
+        matches
+            .value_of("kernel")
+            .expect("kernel was somehow missing"),
+    )
+    .expect("unable to read kernel");
+
+    if let Some(init_paths) = matches.values_of("init") {
+        for init_path in init_paths {
+            let init = read_minielf(init_path).expect("couldn't parse init file");
+            args.add(IniE::new(init.entry_point, init.sections, init.program));
+        }
+    }
+
     let xkrn = XousKernel::new(
-        program_offset as u32,
         kernel.text_offset,
         kernel.text_size,
         kernel.data_offset,
         kernel.data_size,
         kernel.bss_size,
         kernel.entry_point,
+        kernel.program,
     );
-    program_offset += kernel.program.len();
     args.add(xkrn);
 
-    for program_description in &programs {
-        let init = Init::new(
-            program_offset as u32,
-            program_description.text_offset,
-            program_description.text_size,
-            program_description.data_offset,
-            program_description.data_size,
-            program_description.bss_size,
-            program_description.entry_point,
-        );
-        program_offset += program_description.program.len();
-        args.add(init);
-    }
-
-    println!("Arguments: {}", args);
+    // Add tags for init and kernel.  These point to the actual data, which should
+    // immediately follow the tags.  Therefore, we must know the length of the tags
+    // before we create them.
 
     let output_filename = matches
         .value_of("output")
         .expect("output filename not present");
-    let mut f = File::create(output_filename)
+    let f = File::create(output_filename)
         .expect(&format!("Couldn't create output file {}", output_filename));
     args.write(&f).expect("Couldn't write to args");
 
-    pad_file_to_4_bytes(&mut f);
-    f.write(&kernel.program).expect("Couldn't write kernel");
-    println!("Wrote {} bytes", kernel.program.len());
-
-    for program_description in &programs {
-        pad_file_to_4_bytes(&mut f);
-        f.write(&program_description.program)
-            .expect("Couldn't write init image");
-    }
+    println!("Arguments: {}", args);
 
     println!(
         "Runtime will require {} bytes to track memory allocations",

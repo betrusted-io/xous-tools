@@ -1,4 +1,4 @@
 pub mod bflg;
-pub mod init;
+pub mod inie;
 pub mod memory;
 pub mod xkrn;

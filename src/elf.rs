@@ -43,6 +43,7 @@ pub struct ProgramDescription {
     pub program: Vec<u8>,
 }
 
+#[derive(Debug)]
 pub struct MiniElfSection {
     pub virt: u32,
     pub size: u32,
@@ -278,9 +279,6 @@ pub fn read_minielf<P: AsRef<Path>>(filename: P) -> Result<MiniElf, ElfReadError
     }
     debug!("Program starts at 0x{:x}", entry_point);
 
-    // This is used to keep track of whether it's word-aligned
-    let mut size = 0;
-
     // This keeps a running offset of where data is getting copied.
     let mut program_offset = 0;
     for s in elf.section_iter() {
@@ -302,8 +300,7 @@ pub fn read_minielf<P: AsRef<Path>>(filename: P) -> Result<MiniElf, ElfReadError
         debug!("    offset:           {:08x}", s.offset());
         debug!("    size:             {:?}", s.size());
         debug!("    link:             {:?}", s.link());
-        size += s.size();
-        if size & 3 != 0 {
+        if s.size() & 3 != 0 {
             panic!("Size is not padded!");
         }
 
