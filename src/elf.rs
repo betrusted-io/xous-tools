@@ -28,12 +28,6 @@ pub struct ProgramDescription {
     pub program: Vec<u8>,
 }
 
-struct ElfHeader {
-    virt: usize,
-    phys: usize,
-    length: usize,
-}
-
 #[derive(Debug)]
 pub enum ElfReadError {
     /// Read an unexpected number of bytes
@@ -82,8 +76,6 @@ impl fmt::Display for ElfReadError {
 
 use std::path::Path;
 pub fn read_program<P: AsRef<Path>>(filename: P) -> Result<ProgramDescription, ElfReadError> {
-    let mut headers = vec![];
-
     let mut b = Vec::new();
     {
         let mut fi = File::open(filename).or_else(|x| Err(ElfReadError::OpenElfError(x)))?;
@@ -108,11 +100,6 @@ pub fn read_program<P: AsRef<Path>>(filename: P) -> Result<ProgramDescription, E
         debug!("Program Header: {:?}", ph);
         if ph.get_type() == Ok(ProgramType::Load) {
             expected_size += ph.file_size();
-            headers.push(ElfHeader {
-                virt: ph.virtual_addr() as usize,
-                phys: ph.physical_addr() as usize,
-                length: ph.file_size() as usize,
-            });
             if phys_offset == 0 {
                 phys_offset = ph.physical_addr();
             }
@@ -189,21 +176,6 @@ pub fn read_program<P: AsRef<Path>>(filename: P) -> Result<ProgramDescription, E
             continue;
         }
         debug!("Adding {} to the file", name);
-        let header = headers
-            .iter()
-            .find(|&x| {
-                debug!(
-                    "Comparing {:08x}:{:08x} to {:08x}:{:08x}",
-                    s.address(),
-                    s.address() + s.size(),
-                    x.virt,
-                    x.virt + x.length
-                );
-                (s.address() as usize) >= x.virt
-                    && ((s.address() + s.size()) as usize) <= x.virt + x.length
-            })
-            .ok_or(ElfReadError::SectionRangeError)?;
-        // let program_offset = s.address() - header.virt as u64 + header.phys as u64 - phys_offset;
         debug!(
             "s offset: {:08x}  program_offset: {:08x}  Bytes: {}  seek: {}",
             s.offset(),
