@@ -305,7 +305,7 @@ pub fn read_minielf<P: AsRef<Path>>(filename: P) -> Result<MiniElf, ElfReadError
         debug!("    size:             {:?}", s.size());
         debug!("    link:             {:?}", s.link());
         let size = s.size();
-        let padding = 4 - (size & 3);
+        let padding = (4 - (size & 3)) & 3;
 
         if s.flags() & SHF_ALLOC == 0 {
             debug!("section has no allocations -- skipping");
@@ -323,11 +323,12 @@ pub fn read_minielf<P: AsRef<Path>>(filename: P) -> Result<MiniElf, ElfReadError
 
         debug!("Adding {} to the file", name);
         debug!(
-            "{} offset: {:08x}  program_offset: {:08x}  Bytes: {}  seek: {}",
+            "{} offset: {:08x}  program_offset: {:08x}  bytes: {}  padding: {}  seek: {}",
             name,
             s.offset(),
             program_offset,
             s.raw_data(&elf).len(),
+            padding,
             program_offset
         );
         let section_data = s.raw_data(&elf);
