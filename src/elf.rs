@@ -55,7 +55,7 @@ impl fmt::Display for MiniElfSection {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Section {}: {} bytes @ {:08x} flags: {:?}",
+            "Section {}: {} bytes loading @ {:08x} flags: {:?}",
             self.name, self.size, self.virt, self.flags
         )
     }
@@ -93,6 +93,9 @@ pub enum ElfReadError {
     /// Section wasn't in range
     SectionRangeError,
 
+    /// Section wasn't word-aligned
+    SectionNotAligned(String /* section name */, usize /* section size */),
+
     /// Couldn't seek the file to write the section
     FileSeekError(std::io::Error),
 
@@ -112,6 +115,7 @@ impl fmt::Display for ElfReadError {
             OpenElfError(e) => write!(f, "couldn't open the elf file: {}", e),
             ParseElfError(e) => write!(f, "couldn't parse the elf file: {}", e),
             SectionRangeError => write!(f, "elf section pointed outside of the file"),
+            SectionNotAligned(s, a) => write!(f, "elf section {} had unaligned length {}", s, a),
             FileSeekError(e) => write!(f, "couldn't seek in the output file: {}", e),
             WriteSectionError(e) => write!(f, "couldn't write a section to the output file: {}", e),
         }
@@ -173,7 +177,7 @@ pub fn read_program<P: AsRef<Path>>(filename: P) -> Result<ProgramDescription, E
         debug!("    link:             {:?}", s.link());
         size += s.size();
         if size & 3 != 0 {
-            debug!("Size is not padded!");
+            return Err(ElfReadError::SectionNotAligned(name.to_owned(), s.size() as usize));
         }
 
         if name == ".data" {
@@ -300,9 +304,8 @@ pub fn read_minielf<P: AsRef<Path>>(filename: P) -> Result<MiniElf, ElfReadError
         debug!("    offset:           {:08x}", s.offset());
         debug!("    size:             {:?}", s.size());
         debug!("    link:             {:?}", s.link());
-        if s.size() & 3 != 0 {
-            panic!("Size is not padded!");
-        }
+        let size = s.size();
+        let padding = 4 - (size & 3);
 
         if s.flags() & SHF_ALLOC == 0 {
             debug!("section has no allocations -- skipping");
@@ -342,10 +345,11 @@ pub fn read_minielf<P: AsRef<Path>>(filename: P) -> Result<MiniElf, ElfReadError
                 .write(section_data)
                 .or_else(|x| Err(ElfReadError::WriteSectionError(x)))?;
             program_offset += section_data.len() as u64;
+            program_offset += padding as u64;
         }
         sections.push(MiniElfSection {
-            virt: s.offset() as u32,
-            size: s.size() as u32,
+            virt: s.address() as u32,
+            size: (size + padding) as u32,
             flags: flags,
             name: name.to_string(),
         });

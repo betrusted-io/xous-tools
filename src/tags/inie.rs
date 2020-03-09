@@ -25,8 +25,10 @@ impl fmt::Display for IniE {
             "    IniE: entrypoint @ {:08x}, loaded from {:08x}.  Sections:",
             self.entrypoint, self.load_offset
         )?;
+        let mut load_offset = self.load_offset;
         for section in &self.sections {
-            writeln!(f, "        {}", section)?;
+            writeln!(f, "        Loaded from {:08x} - {}", load_offset, section)?;
+            load_offset += section.size as u32;
         }
         Ok(())
     }

@@ -17,9 +17,6 @@ log = "0"
 xmas-elf = "0.7.0"
 
 [[bin]]
-name = "copy-minielf"
-
-[[bin]]
 name = "copy-object"
 
 [[bin]]
