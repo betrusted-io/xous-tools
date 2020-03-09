@@ -9,6 +9,7 @@ use std::path::Path;
 use std::process;
 
 fn main() {
+    env_logger::init();
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         println!("Usage: {} input.elf [output.bin]", args.get(0).unwrap_or(&"copy-object".to_owned()));

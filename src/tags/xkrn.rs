@@ -24,6 +24,9 @@ pub struct XousKernel {
 
     /// Virtual address of the entrypoint
     entrypoint: u32,
+
+    /// Actual program contents
+    program: Vec<u8>,
 }
 
 impl fmt::Display for XousKernel {
@@ -36,27 +39,24 @@ impl fmt::Display for XousKernel {
 
 impl XousKernel {
     pub fn new(
-        load_offset: u32,
         text_offset: u32,
         text_size: u32,
         data_offset: u32,
         data_size: u32,
         bss_size: u32,
         entrypoint: u32,
+        program: Vec<u8>,
     ) -> XousKernel {
         XousKernel {
-            load_offset,
+            load_offset: 0,
             text_offset,
             text_size,
             data_offset,
             data_size,
             bss_size,
             entrypoint,
+            program,
         }
-    }
-
-    pub fn len() -> usize {
-        std::mem::size_of::<Self>()
     }
 }
 
@@ -64,9 +64,20 @@ impl XousArgument for XousKernel {
     fn code(&self) -> XousArgumentCode {
         make_type!("XKrn")
     }
+
     fn length(&self) -> XousSize {
-        std::mem::size_of::<Self>() as XousSize
+        28 as XousSize
     }
+
+    fn finalize(&mut self, offset: usize) -> usize {
+        self.load_offset = offset as u32;
+        self.program.len()
+    }
+
+    fn last_data(&self) -> &[u8] {
+        &self.program
+    }
+
     fn serialize(&self, output: &mut dyn io::Write) -> io::Result<usize> {
         let mut written = 0;
         written += output.write(&self.load_offset.to_le_bytes())?;

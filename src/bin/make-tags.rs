@@ -3,7 +3,7 @@ extern crate xous_tools;
 use std::fs::File;
 
 use xous_tools::make_type;
-use xous_tools::tags::init::Init;
+// use xous_tools::tags::init::Init;
 use xous_tools::tags::memory::{MemoryRegion, MemoryRegions};
 use xous_tools::tags::xkrn::XousKernel;
 use xous_tools::xous_arguments::{XousArguments, XousSize};
@@ -30,13 +30,13 @@ fn main() {
     regions.add(MemoryRegion::new(LCD_START, LCD_SIZE, make_type!("mlcd")));
     args.add(regions);
 
-    let init = Init::new(
-        0x20500000, 131072, 0x10000000, 0x20000000, 32768, 1234, 0x10000000,
-    );
-    args.add(init);
+    // let init = Init::new(
+    //     0x20500000, 131072, 0x10000000, 0x20000000, 32768, 1234, 0x10000000,
+    // );
+    // args.add(init);
 
     let xkrn = XousKernel::new(
-        0x20500000, 65536, 0x02000000, 0x04000000, 32768, 5678, 0x02000000,
+        0x20500000, 65536, 0x02000000, 0x04000000, 32768, 5678, vec![],
     );
     args.add(xkrn);
 
